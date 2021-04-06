@@ -3,12 +3,10 @@
 from which_pyqt import PYQT_VER
 if PYQT_VER == 'PYQT5':
 	from PyQt5.QtCore import QLineF, QPointF
-elif PYQT_VER == 'PYQT4':
-	from PyQt4.QtCore import QLineF, QPointF
+# elif PYQT_VER == 'PYQT4':
+# 	from PyQt4.QtCore import QLineF, QPointF
 else:
 	raise Exception('Unsupported Version of PyQt: {}'.format(PYQT_VER))
-
-
 
 
 import time
@@ -61,11 +59,11 @@ class TSPSolver:
 		end_time = time.time()
 		results['cost'] = bssf.cost if foundTour else math.inf
 		results['time'] = end_time - start_time
-		results['count'] = count
-		results['soln'] = bssf
-		results['max'] = None
-		results['total'] = None
-		results['pruned'] = None
+		results['count'] = count # Number of solutions discovered.
+		results['soln'] = bssf # Object containing the route.
+		results['max'] = None # Max size of the queue.
+		results['total'] = None # Total states generated.
+		results['pruned'] = None # Number of states pruned.
 		return results
 
 
@@ -82,6 +80,16 @@ class TSPSolver:
 	'''
 
 	def greedy( self,time_allowance=60.0 ):
+		# Get cities
+		# go by smallest distance
+
+		pass
+
+	def jacobGreedy( self,time_allowance=60.0 ):
+		cities = self._scenario.getCities()
+		currCity = cities[0]
+
+
 		pass
 	
 	
