@@ -93,27 +93,37 @@ class TSPSolver:
         runningCost = 0
 
         # For every city, get the minimal cost to another city and add it to our route
-        for currCity in cities:
+        i = 0
+        counter = 0
+        while(counter < len(cities)):
+            currCity = cities[i]
             heapFromCurrCity = []
 
             # Find costs from current city to every other city
-            for tempCity in cities:
+            for j in range(len(cities)):
+                tempCity = cities[j]
                 try:
                     isVisited = visitedCities[tempCity._name] # Will not throw exception if city has
                                                               # been visited. Therefore, skip it.
                 except:
                     cost = currCity.costTo(tempCity)
-                    wrappedCity = CityWrapper(cost, tempCity)
+                    wrappedCity = CityWrapper(cost, tempCity, j)
                     heapq.heappush(heapFromCurrCity, wrappedCity)
 
             # Obtain the closest city, make it impossible to visit in the future, and add it to the route.
+            if len(heapFromCurrCity) == 0:
+                # currCity is the last city. We are done.
+                break
             wrappedCity = heapq.heappop(heapFromCurrCity)
             closestCityToCurrentCity =  wrappedCity._city
             cost = wrappedCity._cost
+            i = wrappedCity._indexInCities
             visitedCities[closestCityToCurrentCity._name] = True  # Prevent us from visiting the closest city
                                                                   # in future calculations
             route.append(closestCityToCurrentCity)
             runningCost += cost
+
+            counter += 1
 
         endTime = time.time()
         bssf = TSPSolution(route)
@@ -121,8 +131,7 @@ class TSPSolver:
         if len(visitedCities.keys()) == len(cities):
             bssf.cost = runningCost
 
-        timePassed = startTime - endTime
-        self.time_allowance -= timePassed
+        timePassed = endTime - startTime
 
         results['time'] = timePassed
         results['cost'] = bssf.cost
