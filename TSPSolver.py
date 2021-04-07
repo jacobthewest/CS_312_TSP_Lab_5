@@ -161,7 +161,7 @@ class TSPSolver:
         max queue size, total number of states created, and number of pruned states.</returns> 
     '''
 
-    # Time Complexity: O(number of states I generate * n^4) Because I have a O(n^4) time
+    # Time Complexity: O(number of states I generate * n^3) Because I have a O(n^3) time
     #                  complex operation to generate and build each state, and then I
     #                  process every state in my queue.
     # Space Complexity: O(number of states I generate * n^2) Because I have a queue full of every
@@ -187,12 +187,13 @@ class TSPSolver:
 
         # Perform branch and bound work on our newly created states
         #
-        # Time complexity: O(however many states we generate * n) because our queue is full of state objects
-        # and for each state object we will look at every cell in its table.
+        # Time complexity: O(however many states we generate * n^3) because our queue is full of state objects
+        # and for the row in focus O(n) we will perform a statify() O(n^2) operation on every cell. Therefore, we have
+        # a O(n^2) operation inside of an O(n) operation, giving us O(n^3) time for every state in the queue. Therefore,
+        # total time complexity = O(however many states we generate * n^3).
         #
         # Space complexity: O(number of states I generate * n^2) Because I have a queue full of every
-        #                   state that I generate. Each state object has a table of size O(n^2) inside
-        #                   of it.
+        #                   state that I generate. Each state object has a table of size O(n^2) inside of it.
         while self._queue:
 
             # Pop off the state with the smallest bssf/bound thing in the queue
@@ -236,6 +237,7 @@ class TSPSolver:
         tempTimePassed = currTime - self._startTime
         self._results['time'] += tempTimePassed
         self._results['cost'] = self._results['soln'].cost
+        print("Time: " + str(self._results['time']))
         self._results['pruned'] += len(self._queue)  # Add states that were never processed to the pruned count.
                                                      # The lab specs ask us to do this.
 
