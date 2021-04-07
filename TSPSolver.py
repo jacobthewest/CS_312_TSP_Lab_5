@@ -160,6 +160,12 @@ class TSPSolver:
         max queue size, total number of states created, and number of pruned states.</returns> 
     '''
 
+    # Time Complexity: O(number of states I generate * n^4) Because I have a O(n^4) time
+    #                  complex operation to generate and build each state, and then I
+    #                  process every state in my queue.
+    # Space Complexity: O(number of states I generate * n^2) Because I have a queue full of every
+    #                   state that I generate. Each state object has a table of size O(n^2) inside
+    #                   of it.
     def branchAndBound( self, time_allowance=60.0):
         self.initResults()
         table = self.createParent()
@@ -169,6 +175,8 @@ class TSPSolver:
         startTime = time.time()
 
         # Create the first states
+        # O(n^4) time complexity because I have a O(n^2) complex nested for loop
+        # and I perform the O(n^2) time complexity statify() function inside of it.
         for row in range(len(table)):
             for col in range(len(table[row])):
                 if table[row][col][0] != INFINITY: # 0 because that is where the cost to get to
@@ -176,6 +184,13 @@ class TSPSolver:
                     self.statify(row, col, table, [])
 
         # Perform branch and bound work on our newly created states
+        #
+        # Time complexity: O(however many states we generate * n) because our queue is full of state objects
+        # and for each state object we will look at every cell in its table.
+        #
+        # Space complexity: O(number of states I generate * n^2) Because I have a queue full of every
+        #                   state that I generate. Each state object has a table of size O(n^2) inside
+        #                   of it.
         while self._queue:
 
             # Pop off the state with the smallest bssf/bound thing in the queue
@@ -220,6 +235,10 @@ class TSPSolver:
     # Performs operations on the parent table to update the bounds
     # from moving to a new city, and creates a table to show those
     # changes.
+    # Time Complexity: O(n^2) because our zeroRows(), zeroCols(),
+    #                  and infinitize() functions are all O(n^2).
+    # Space Complexity: O(n^2) because the table object is the
+    #                   largest object at O(n^2) (n rows and n cols).
     def statify(self, row, col, table, route, parentBSSF = None):
 
         # A little logic trick to see if this is one of the first, undeveloped states
@@ -268,6 +287,9 @@ class TSPSolver:
     # Subtracts the min value in every row from every element
     # to ensure we always have at least one zero in every row.
     # Adds the subtraction amount to the bound and returns it.
+    #
+    # Time complexity: O(n^2) because we look at every cell in table.
+    # Space Complexity: O(n^2) because we have a table of n rows and n columns.
     def zeroRows(self, bound, table):
 
         for i in range(len(table)):
@@ -294,6 +316,9 @@ class TSPSolver:
     # Subtracts the min value in every col from every element
     # to ensure we always have at least one zero in every col.
     # Adds the subtraction amount to the bound and returns it.
+    #
+    # Time complexity: O(n^2) because we look at every cell in table.
+    # Space Complexity: O(n^2) because we have a table of n rows and n columns.
     def zeroCols(self, bound, table):
 
         for i in range(len(table)):
@@ -319,11 +344,15 @@ class TSPSolver:
 
     # Updates the rows and cols to be infinity from.
     # Updates the backtrace to be infinity
+    #
+    # Time Complexity: O(n^2). We have a double for loop to check every cell in the table.
+    # Space Complexity: O(n^2). The table is of size O(n^2)
     def infinitize(self, row, col, table):
 
         infinityCount = 0
         doneCount = len(table) * len(table)
 
+        # O(n^2) loops
         for i in range(len(table)):
             for j in range(len(table[i])):
                 if table[i][j][0] == INFINITY: # 0 because the table is of tuples (cost, city)
@@ -342,7 +371,8 @@ class TSPSolver:
         return table, solnFound
 
 
-
+    # Time Complexity: O(n^2) because we compare every city to every other city.
+    # Space Complexity: O(n^2) because we create a table of n rows and n columns.
     def createParent(self):
         cities = self._scenario.getCities()
         numCities = len(cities)
@@ -362,6 +392,9 @@ class TSPSolver:
 
 
 
+    # Time Complexity: O(n^2) because my greedy solution is of O(n^2) complexity
+    # Space Complexity: O(n^2) because my greedy solution creates a list of cities
+    #                   in its route.
     def initResults(self):
         self._results = self.greedy()
 
