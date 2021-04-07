@@ -16,6 +16,7 @@ from CityWrapper import *
 from StateWrapper import *
 import heapq
 import itertools
+import copy
 
 INFINITY = math.inf
 
@@ -40,8 +41,8 @@ class TSPSolver:
 
     def defaultRandomTour(self, time_allowance=60.0):
         results = {}
-        cities = self._scenario.getCities()
-        ncities = len(cities)
+        self._cities = self._scenario.getCities()
+        ncities = len(self._cities)
         foundTour = False
         count = 0
         bssf = None
@@ -52,7 +53,7 @@ class TSPSolver:
             route = []
             # Now build the route using the random permutation
             for i in range(ncities):
-                route.append(cities[perm[i]])
+                route.append(self._cities[perm[i]])
             bssf = TSPSolution(route)
             count += 1
             if bssf.cost < np.inf:
@@ -86,15 +87,16 @@ class TSPSolver:
     #                   a heapQueue that is of size n (worst case),
     #                   and a route list of size n.
     def greedy(self, time_allowance=60.0):
+
         results = {}
-        cities = self._scenario.getCities()
+        self._cities = self._scenario.getCities()
         visitedCities = {}
 
         self._startTime = time.time()
         self._time_allowance = time_allowance
         route = []
-        route.append(cities[0])  # Add starting city to the route
-        visitedCities[cities[0]._name] = True  # Prevent us from visiting our starting city
+        route.append(self._cities[0])  # Add starting city to the route
+        visitedCities[self._cities[0]._name] = True  # Prevent us from visiting our starting city
 
         runningCost = 0
 
@@ -102,13 +104,13 @@ class TSPSolver:
         i = 0
         counter = 0
         # This is O(n^2) because of an n size loop inside of an n size loop
-        while (counter < len(cities)):
-            currCity = cities[i]
+        while (counter < len(self._cities)):
+            currCity = self._cities[i]
             heapFromCurrCity = []
 
             # Find costs from current city to every other city
-            for j in range(len(cities)):
-                tempCity = cities[j]
+            for j in range(len(self._cities)):
+                tempCity = self._cities[j]
                 try:
                     isVisited = visitedCities[tempCity._name]  # Will not throw exception if city has
                     # been visited. Therefore, skip it.
@@ -124,18 +126,18 @@ class TSPSolver:
             wrappedCity = heapq.heappop(heapFromCurrCity)
             closestCityToCurrentCity = wrappedCity._city
             cost = wrappedCity._cost
+
             i = wrappedCity._indexInCities
             visitedCities[closestCityToCurrentCity._name] = True  # Prevent us from visiting the closest city
             # in future calculations
             route.append(closestCityToCurrentCity)
             runningCost += cost
-
             counter += 1
 
         endTime = time.time()
         bssf = TSPSolution(route)
         bssf.cost = INFINITY
-        if len(visitedCities.keys()) == len(cities):
+        if len(visitedCities.keys()) == len(self._cities):
             bssf.cost = runningCost
 
         timePassed = endTime - self._startTime
@@ -171,17 +173,17 @@ class TSPSolver:
         self._timesUp = False
 
         self.initResults()
-        # table = self.createParent()
-        table = self._results['table']
+        bound, table = self.createParent()
         self._queue = []
 
-        # Create the first states
-        # O(n^3) time complexity because I have a O(n) time complex for loop
-        # and I perform the O(n^2) time complexity statify() function inside of it.
-        for col in range(len(table[0])):
-            if table[0][col][0] != INFINITY:  # 0 because that is where the cost to get to
-                # the city is stored
-                self.statify(0, col, table, [], 0)
+        # Add the first state to the queue
+        #             StateWrapper(matrix, bound, srcPath, route, depth)
+        firstCity = self._cities[0]
+        returnState = StateWrapper(table, bound, (0, 0), [firstCity], 0)
+        heapq.heappush(self._queue, returnState)
+        self._results['max'] += 1 # Because we now have our first state in the queue
+        self._results['total'] += 1  # Because we have generated a state
+
 
         # Perform branch and bound work on our newly created states
         #
@@ -198,35 +200,44 @@ class TSPSolver:
 
             # Perform a pruning check
             # self._results['soln'].cost holds our current BSSF cost
-            if state._state_bound <= self._results['soln'].cost:
+            if state._state_bound < self._results['soln'].cost:
 
                 # Get the row to expand into more states
                 row = state._src_path[1]  # 1 Is the col index. Our row we will
-                # expand will come from the prev
-                # state's column.
+                                          # expand will come from the prev
+                                          # state's column.
                 table = state._table
+
+                startCity = state._route[0]
 
                 # Expand the cell in the row into a new state if it is not infinity
                 for i in range(len(table[row])):
                     if table[row][i][0] != INFINITY:  # 0 because that is where the cost to get to
-                        # the city is stored
-                        route = state._route
-                        self.statify(row, i, table, route, state._depth, state._state_bound)
+                                                      # the city is stored
+                        # Make sure we don't re-visit cities, but we are ok to revisit the start city
+                        # if we are in the last city
+                        if table[row][i][1] != startCity or len(state._route) == len(self._cities):
+                            self.statify(row, i, table, state._route, state._depth, state._state_bound)
             else:  # We need to prune this state
                 self._results['pruned'] += 1
 
-            # # Do we have time to do more work?
-            # self.timeCheck()
-            # if self._timesUp:
-            #     break
+            # Do we have time to do more work?
+            # This check happens after we build states from every row in focus
+            self.timeCheck()
+            if self._timesUp:
+                return self.wrapThingsUp()
 
         # Done processing all of our states
+        return self.wrapThingsUp()
+
+    def wrapThingsUp(self):
         # Set the time it took to perform the algorithm
         currTime = time.time()
         tempTimePassed = currTime - self._startTime
         self._results['time'] += tempTimePassed
-        self._results['pruned'] += len(self._queue) # Add states that were never processed to the pruned count.
-                                                    # The lab specs ask us to do this.
+        self._results['cost'] = self._results['soln'].cost
+        self._results['pruned'] += len(self._queue)  # Add states that were never processed to the pruned count.
+                                                     # The lab specs ask us to do this.
 
         # Done
         return self._results
@@ -245,13 +256,7 @@ class TSPSolver:
     #                  and infinitize() functions are all O(n^2).
     # Space Complexity: O(n^2) because the table object is the
     #                   largest object at O(n^2) (n rows and n cols).
-    def statify(self, row, col, table, route, depth, parentBSSF=None):
-
-        # A little logic trick to see if this is one of the first, undeveloped states
-        # or if we need to do more processing on the state because it is well-developed
-        bound = parentBSSF
-        if not parentBSSF:
-            bound = self._results['soln'].cost
+    def statify(self, row, col, table, route, depth, bound):
 
         # Create a table that matches the parent table
         tableMatch = []
@@ -261,29 +266,34 @@ class TSPSolver:
                 tableMatch[i].append(table[i][j])
 
         # Inifinitize the rows and columns in the table from the operation
-        tableMatch, solnFound = self.infinitize(row, col, tableMatch)
+        updatedBound, tableMatch, solnFound = self.infinitize(row, col, tableMatch, bound)
 
         # Zero out the rows. Update the bound & table
-        updatedBound, tableMatch = self.zeroRows(bound, tableMatch)
+        updatedBound, tableMatch = self.zeroRows(updatedBound, tableMatch)
 
         # Zero out the cols. Update the bound & table
         updatedBound, tableMatch = self.zeroCols(updatedBound, tableMatch)
 
         # Add the path taken to get to the city to the route
-        route.append(tableMatch[row][col][1])  # 1 because that is the city index in the tuple in the table
+        updatedRoute = copy.deepcopy(route)
+        updatedRoute.append(tableMatch[row][col][1])  # 1 because that is the city index in the tuple in the table
 
         # Update things if we have found a solution and it is a better solution
-        if solnFound and updatedBound <= self._results['soln'].cost:
+        if solnFound and updatedBound < self._results['soln'].cost:
             # Update the count of solutions discovered.
             self._results['count'] += 1
             # Set the BSSF to help with future pruning.
-            self._results['soln'] = TSPSolution(route)
-            self._results['soln'].cost = bound
+            self._results['soln'] = TSPSolution(route) # Use the original route so it doesn't have the first city twice.
+            self._results['soln'].cost = updatedBound
+            self._results['pruned'] -= 1 # Just because it is going to increment one above what
+                                         # what it should be right after this on line 303.
+            self._results['total'] -= 1 # Similar situation to the pruned problem above...
 
-        if updatedBound <= bound and not solnFound:
+        # The updatedBound is < BSSF so it is worth pursuing this route
+        if updatedBound < self._results['soln'].cost:
             # Create variables to create a state to add to the queue
             srcPath = (row, col)
-            returnState = StateWrapper(tableMatch, bound, srcPath, route, depth + 1)
+            returnState = StateWrapper(tableMatch, updatedBound, srcPath, updatedRoute, depth + 1)
 
             # Add the state object to the queue and see if our queue
             # is the biggest it has ever been
@@ -360,10 +370,13 @@ class TSPSolver:
     #
     # Time Complexity: O(n^2). We have a double for loop to check every cell in the table.
     # Space Complexity: O(n^2). The table is of size O(n^2)
-    def infinitize(self, row, col, table):
+    def infinitize(self, row, col, table, bound):
 
         infinityCount = 0
         doneCount = len(table) * len(table)
+
+        # Add the current cell's value to the bound
+        bound += table[row][col][0]
 
         # O(n^2) loops
         for i in range(len(table)):
@@ -372,36 +385,46 @@ class TSPSolver:
                     infinityCount += 1
                 elif row == i:  # Make the row infinity (if qualifies)
                     table[i][j] = (INFINITY, table[i][j][1])
+                    infinityCount += 1
                 elif col == j:  # Make the col infinity (if qualifies)
                     table[i][j] = (INFINITY, table[i][j][1])
+                    infinityCount += 1
 
         # Infinitize the backtrace
-        table[col][row] = (INFINITY, table[col][row][1])  # Handles the reverse of table[row][col]
+        if table[col][row][0] != INFINITY:
+            table[col][row] = (INFINITY, table[col][row][1])  # Handles the reverse of table[row][col]
+            infinityCount += 1
+
         solnFound = False
         if infinityCount == doneCount:
             solnFound = True
 
-        return table, solnFound
+        return bound, table, solnFound
 
-    # # Time Complexity: O(n^2) because we compare every city to every other city.
-    # # Space Complexity: O(n^2) because we create a table of n rows and n columns.
-    # def createParent(self):
-    #     cities = self._scenario.getCities()
-    #     numCities = len(cities)
-    #     table = []
-    #
-    #     # Create empty table to fill
-    #     for city in cities:
-    #         table.append([])
-    #
-    #     # Populate the parent table
-    #     for i in range(numCities):
-    #         currCity = cities[i]
-    #         for j in range(numCities):
-    #             cost = currCity.costTo(cities[j])
-    #             table[i].append((cost, cities[j]))
-    #
-    #     return table
+    # Time Complexity: O(n^2) because we compare every city to every other city.
+    # Space Complexity: O(n^2) because we create a table of n rows and n columns.
+    def createParent(self):
+        self._cities = self._scenario.getCities()
+        numCities = len(self._cities)
+        table = []
+
+        # Create empty table to fill
+        for city in self._cities:
+            table.append([])
+
+        # Populate the parent table
+        for i in range(numCities):
+            currCity = self._cities[i]
+            for j in range(numCities):
+                cost = currCity.costTo(self._cities[j])
+                table[i].append((cost, self._cities[j]))
+
+        # Find the bound and create the reduced cost matrix
+        # This takes O(n^2) time complexity and O(n^2) space complexity
+        bound, table = self.zeroRows(0, table)
+        bound, table = self.zeroCols(0, table)
+
+        return bound, table
 
     # Time Complexity: O(n^2) because my greedy solution is of O(n^2) complexity
     # Space Complexity: O(n^2) because my greedy solution creates a list of cities
