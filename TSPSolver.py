@@ -81,6 +81,11 @@ class TSPSolver:
         algorithm</returns> 
     '''
 
+    # Time complexity: O(n^2) because we compare every city to every other city when
+    #                  we are trying to find the min cost.
+    # Space complexity: O(n). Because of a map of size n called visitedCities,
+    #                   a heapQueue that is of size n (worst case),
+    #                   and a route list of size n.
     def greedy( self,time_allowance=60.0 ):
         results = {}
         cities = self._scenario.getCities()
@@ -96,6 +101,7 @@ class TSPSolver:
         # For every city, get the minimal cost to another city and add it to our route
         i = 0
         counter = 0
+        # This is O(n^2) because of an n size loop inside of an n size loop
         while(counter < len(cities)):
             currCity = cities[i]
             heapFromCurrCity = []
